@@ -1,0 +1,85 @@
+// Script de construction du mod. Gradle lit ce fichier pour savoir
+// quelles dépendances télécharger et comment compiler le code.
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// Dépôt Maven où GeckoLib est publié
+	maven {
+		name = 'GeckoLib'
+		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+		content {
+			includeGroup('com.geckolib')
+		}
+	}
+}
+
+loom {
+	// Sépare le code en deux "source sets" :
+	//  - src/main   : code commun (serveur + client) : items, blocs, entités, logique
+	//  - src/client : code uniquement client : rendu, HUD, écrans, modèles
+	// Loom empêche ainsi d'appeler du code client depuis le serveur par erreur.
+	splitEnvironmentSourceSets()
+
+	mods {
+		"cordraconis" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// Tests automatiques "en jeu" : ./gradlew runClientGameTest
+// Lance un vrai client Minecraft, crée un monde plat, exécute src/gametest puis ferme le jeu.
+// Les captures d'écran sont enregistrées dans build/run/clientGameTest/screenshots.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "cordraconis-tests"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = false
+	}
+}
+
+dependencies {
+	// Minecraft lui-même et le chargeur de mods Fabric
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API : boîte à outils (enregistrement d'items, événements, réseau, HUD...)
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// GeckoLib : animations des modèles Blockbench (mobs, boss, épée)
+	implementation "com.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+}
+
+processResources {
+	// Remplace ${version} dans fabric.mod.json par la vraie version du mod
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+// Minecraft 26.x exige Java 25
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = "UTF-8"
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

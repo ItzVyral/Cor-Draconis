@@ -1,0 +1,14 @@
+{
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:component",
+    "component": "cordraconis:rune",
+    "cases": [
+      { "when": "flamme", "model": { "type": "minecraft:model", "model": "cordraconis:item/epee_du_veilleur_flamme" } },
+      { "when": "vigueur", "model": { "type": "minecraft:model", "model": "cordraconis:item/epee_du_veilleur_vigueur" } },
+      { "when": "givre", "model": { "type": "minecraft:model", "model": "cordraconis:item/epee_du_veilleur_givre" } },
+      { "when": "foudre", "model": { "type": "minecraft:model", "model": "cordraconis:item/epee_du_veilleur_foudre" } }
+    ],
+    "fallback": { "type": "minecraft:model", "model": "cordraconis:item/epee_du_veilleur" }
+  }
+}

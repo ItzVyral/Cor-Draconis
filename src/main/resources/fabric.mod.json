@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "cordraconis",
+	"version": "${version}",
+	"name": "Cor Draconis",
+	"description": "Le Roi-Dragon Vaelthor est mort, son cœur brisé en 7 Éclats. Dernier Veilleur, réunis-les avant que la Cendre ne pétrifie le monde.",
+	"authors": [
+		"Le Veilleur"
+	],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.cordraconis.CorDraconis"
+		],
+		"client": [
+			"com.cordraconis.client.CorDraconisClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*",
+		"geckolib": ">=5.5"
+	}
+}

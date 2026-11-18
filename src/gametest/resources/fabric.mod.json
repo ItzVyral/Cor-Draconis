@@ -1,0 +1,15 @@
+{
+	"schemaVersion": 1,
+	"id": "cordraconis-tests",
+	"version": "1.0.0",
+	"name": "Cor Draconis - tests en jeu",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"com.cordraconis.test.TestsEnJeu"
+		]
+	},
+	"depends": {
+		"cordraconis": "*"
+	}
+}

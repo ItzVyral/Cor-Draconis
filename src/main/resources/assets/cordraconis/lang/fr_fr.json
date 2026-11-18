@@ -1,0 +1,52 @@
+{
+	"itemGroup.cordraconis.main": "Cor Draconis",
+
+	"item.cordraconis.epee_du_veilleur": "Épée du Veilleur",
+	"item.cordraconis.epee_du_veilleur.sans_rune": "Emplacement de rune : vide",
+	"item.cordraconis.epee_du_veilleur.aide": "Clic droit : Souffle draconique",
+
+	"item.cordraconis.rune_de_flamme": "Rune de Flamme",
+	"item.cordraconis.rune_de_vigueur": "Rune de Vigueur",
+	"item.cordraconis.rune_de_givre": "Rune de Givre",
+	"item.cordraconis.rune_de_foudre": "Rune de Foudre",
+
+	"item.cordraconis.cendre_ardente": "Cendre ardente",
+	"item.cordraconis.fiole_de_cendre_froide": "Fiole de cendre froide",
+	"item.cordraconis.fiole_de_cendre_froide.effet": "Boire : -%s Braise et éteint les flammes",
+	"item.cordraconis.sceau_du_gardien": "Sceau du Gardien",
+	"item.cordraconis.sceau_du_gardien.aide": "Utiliser sur le sol pour élever l'arène",
+	"item.cordraconis.sceau_du_gardien.avertissement": "Réveille le Premier Gardien !",
+	"item.cordraconis.premier_eclat": "Premier Éclat du Cœur",
+	"item.cordraconis.eclat.numero": "Éclat %s sur %s",
+	"item.cordraconis.eclat.lore": "Il bat encore, faiblement, au rythme d'un roi mort.",
+	"item.cordraconis.eclat.effet": "Dans l'inventaire : la Braise s'apaise deux fois plus vite",
+	"item.cordraconis.cendreux_spawn_egg": "Œuf d'apparition de Cendreux",
+	"item.cordraconis.premier_gardien_spawn_egg": "Œuf d'apparition du Premier Gardien",
+
+	"block.cordraconis.forge_runique": "Forge runique",
+
+	"entity.cordraconis.cendreux": "Cendreux",
+	"entity.cordraconis.premier_gardien": "Ser Aldric, Premier Gardien",
+
+	"container.cordraconis.forge_runique": "Forge runique",
+	"container.cordraconis.forge_runique.cout": "Coût : %s niveaux",
+
+	"rune.cordraconis.titre": "Rune : %s",
+	"rune.cordraconis.cout": "Braise par sort : +%s",
+	"rune.cordraconis.flamme": "Flamme",
+	"rune.cordraconis.flamme.effet": "Le souffle enflamme et frappe plus fort",
+	"rune.cordraconis.vigueur": "Vigueur",
+	"rune.cordraconis.vigueur.effet": "Chaque ennemi touché soigne le Veilleur",
+	"rune.cordraconis.givre": "Givre",
+	"rune.cordraconis.givre.effet": "Gèle, ralentit et affaiblit les ennemis",
+	"rune.cordraconis.foudre": "Foudre",
+	"rune.cordraconis.foudre.effet": "Repousse ; embrasé, appelle la foudre",
+
+	"message.cordraconis.epee_muette": "L'épée est muette : gravez-y une rune à la Forge runique.",
+	"message.cordraconis.embrasement": "Embrasement ! Votre sang de dragon s'éveille...",
+	"message.cordraconis.surchauffe": "SURCHAUFFE !",
+	"message.cordraconis.gardien_deja_eveille": "Un Gardien veille déjà en ces lieux.",
+	"message.cordraconis.gardien_eveil": "La cendre se soulève. Ser Aldric le Parjure, Premier Gardien, s'éveille pour défendre l'Éclat volé.",
+	"message.cordraconis.gardien_phase2": "« Vaelthor... pardonne-moi... » La Cendre répond à l'appel du Gardien !",
+	"message.cordraconis.gardien_vaincu": "Le Premier Gardien s'effondre. Le premier Éclat du cœur de Vaelthor est libre."
+}

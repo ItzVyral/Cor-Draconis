@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable_with_bottom",
+  "textures": {
+    "top": "cordraconis:block/forge_runique_top",
+    "bottom": "cordraconis:block/forge_runique_bottom",
+    "front": "cordraconis:block/forge_runique_front",
+    "side": "cordraconis:block/forge_runique_side"
+  }
+}

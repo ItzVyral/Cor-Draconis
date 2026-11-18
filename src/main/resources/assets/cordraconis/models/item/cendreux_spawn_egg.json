@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "cordraconis:item/cendreux_spawn_egg"
+  }
+}

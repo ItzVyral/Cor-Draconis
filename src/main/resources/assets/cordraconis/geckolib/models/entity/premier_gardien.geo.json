@@ -1,0 +1,120 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.premier_gardien",
+				"texture_width": 128,
+				"texture_height": 128,
+				"visible_bounds_width": 3,
+				"visible_bounds_height": 4.5,
+				"visible_bounds_offset": [0, 2.25, 0]
+			},
+			"bones": [
+				{
+					"name": "racine",
+					"pivot": [0, 0, 0]
+				},
+				{
+					"name": "bassin",
+					"parent": "racine",
+					"pivot": [0, 27, 0],
+					"cubes": [
+						{"origin": [-6.5, 24, -3.5], "size": [13, 6, 7], "uv": [32, 53]},
+						{"origin": [-7.5, 21, -4.5], "size": [15, 4, 9], "uv": [72, 53]}
+					]
+				},
+				{
+					"name": "torse",
+					"parent": "bassin",
+					"pivot": [0, 30, 0],
+					"cubes": [
+						{"origin": [-7, 30, -4], "size": [14, 16, 8], "uv": [70, 0]},
+						{"origin": [-5, 32, -5], "size": [10, 11, 1], "uv": [56, 69]}
+					]
+				},
+				{
+					"name": "coeur",
+					"parent": "torse",
+					"pivot": [0, 39, -5],
+					"cubes": [
+						{"origin": [-2, 37, -6], "size": [4, 4, 1], "uv": [78, 82]}
+					]
+				},
+				{
+					"name": "cape",
+					"parent": "torse",
+					"pivot": [0, 45, 4],
+					"cubes": [
+						{"origin": [-6, 16, 4], "size": [12, 29, 1], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "tete",
+					"parent": "torse",
+					"pivot": [0, 46, 0],
+					"cubes": [
+						{"origin": [-4.5, 46, -4.5], "size": [9, 10, 9], "uv": [44, 30]},
+						{"origin": [-1, 55, -4], "size": [2, 3, 8], "uv": [26, 82]}
+					]
+				},
+				{
+					"name": "visiere",
+					"parent": "tete",
+					"pivot": [0, 50.5, -4.5],
+					"cubes": [
+						{"origin": [-3.5, 50, -5], "size": [7, 1, 1], "uv": [88, 82]}
+					]
+				},
+				{
+					"name": "bras_droit",
+					"parent": "torse",
+					"pivot": [-9, 43, 0],
+					"cubes": [
+						{"origin": [-12.5, 39, -5], "size": [6, 6, 10], "uv": [88, 30]},
+						{"origin": [-11.5, 24, -3], "size": [5, 17, 6], "uv": [0, 30]},
+						{"origin": [-12, 20, -3.5], "size": [6, 5, 7], "uv": [78, 69]}
+					]
+				},
+				{
+					"name": "epee",
+					"parent": "bras_droit",
+					"pivot": [-9, 22, 0],
+					"cubes": [
+						{"origin": [-10, 18, -1], "size": [2, 6, 2], "uv": [70, 82]},
+						{"origin": [-11, 17, -4], "size": [4, 1, 8], "uv": [46, 82]},
+						{"origin": [-9.5, 1, -1.5], "size": [1, 16, 3], "uv": [80, 30]}
+					]
+				},
+				{
+					"name": "bras_gauche",
+					"parent": "torse",
+					"pivot": [9, 43, 0],
+					"cubes": [
+						{"origin": [6.5, 39, -5], "size": [6, 6, 10], "uv": [0, 53]},
+						{"origin": [6.5, 24, -3], "size": [5, 17, 6], "uv": [22, 30]},
+						{"origin": [6, 20, -3.5], "size": [6, 5, 7], "uv": [0, 82]}
+					]
+				},
+				{
+					"name": "jambe_droite",
+					"parent": "bassin",
+					"pivot": [-3.5, 25, 0],
+					"cubes": [
+						{"origin": [-6, 4, -3], "size": [5, 21, 6], "uv": [26, 0]},
+						{"origin": [-6.5, 0, -4], "size": [6, 5, 8], "uv": [0, 69]}
+					]
+				},
+				{
+					"name": "jambe_gauche",
+					"parent": "bassin",
+					"pivot": [3.5, 25, 0],
+					"cubes": [
+						{"origin": [1, 4, -3], "size": [5, 21, 6], "uv": [48, 0]},
+						{"origin": [0.5, 0, -4], "size": [6, 5, 8], "uv": [28, 69]}
+					]
+				}
+			]
+		}
+	]
+}

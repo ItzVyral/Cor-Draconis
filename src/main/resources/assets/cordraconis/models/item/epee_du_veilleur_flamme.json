@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "cordraconis:item/epee_du_veilleur_flamme"
+  }
+}

@@ -1,0 +1,52 @@
+{
+	"itemGroup.cordraconis.main": "Cor Draconis",
+
+	"item.cordraconis.epee_du_veilleur": "Warden's Blade",
+	"item.cordraconis.epee_du_veilleur.sans_rune": "Rune slot: empty",
+	"item.cordraconis.epee_du_veilleur.aide": "Right-click: Draconic Breath",
+
+	"item.cordraconis.rune_de_flamme": "Rune of Flame",
+	"item.cordraconis.rune_de_vigueur": "Rune of Vigor",
+	"item.cordraconis.rune_de_givre": "Rune of Frost",
+	"item.cordraconis.rune_de_foudre": "Rune of Thunder",
+
+	"item.cordraconis.cendre_ardente": "Smoldering Ash",
+	"item.cordraconis.fiole_de_cendre_froide": "Vial of Cold Ash",
+	"item.cordraconis.fiole_de_cendre_froide.effet": "Drink: -%s Ember and puts out flames",
+	"item.cordraconis.sceau_du_gardien": "Guardian's Seal",
+	"item.cordraconis.sceau_du_gardien.aide": "Use on the ground to raise the arena",
+	"item.cordraconis.sceau_du_gardien.avertissement": "Awakens the First Guardian!",
+	"item.cordraconis.premier_eclat": "First Heart Shard",
+	"item.cordraconis.eclat.numero": "Shard %s of %s",
+	"item.cordraconis.eclat.lore": "It still beats, faintly, to the rhythm of a dead king.",
+	"item.cordraconis.eclat.effet": "In inventory: Ember cools twice as fast",
+	"item.cordraconis.cendreux_spawn_egg": "Ashborn Spawn Egg",
+	"item.cordraconis.premier_gardien_spawn_egg": "First Guardian Spawn Egg",
+
+	"block.cordraconis.forge_runique": "Runic Forge",
+
+	"entity.cordraconis.cendreux": "Ashborn",
+	"entity.cordraconis.premier_gardien": "Ser Aldric, First Guardian",
+
+	"container.cordraconis.forge_runique": "Runic Forge",
+	"container.cordraconis.forge_runique.cout": "Cost: %s levels",
+
+	"rune.cordraconis.titre": "Rune: %s",
+	"rune.cordraconis.cout": "Ember per cast: +%s",
+	"rune.cordraconis.flamme": "Flame",
+	"rune.cordraconis.flamme.effet": "The breath ignites and hits harder",
+	"rune.cordraconis.vigueur": "Vigor",
+	"rune.cordraconis.vigueur.effet": "Each enemy hit heals the Warden",
+	"rune.cordraconis.givre": "Frost",
+	"rune.cordraconis.givre.effet": "Freezes, slows and weakens enemies",
+	"rune.cordraconis.foudre": "Thunder",
+	"rune.cordraconis.foudre.effet": "Knocks back; when ablaze, calls lightning",
+
+	"message.cordraconis.epee_muette": "The blade is silent: engrave a rune at the Runic Forge.",
+	"message.cordraconis.embrasement": "Ablaze! Your dragon blood awakens...",
+	"message.cordraconis.surchauffe": "OVERHEAT!",
+	"message.cordraconis.gardien_deja_eveille": "A Guardian already keeps watch here.",
+	"message.cordraconis.gardien_eveil": "The ash rises. Ser Aldric the Oathbreaker, First Guardian, awakens to defend the stolen Shard.",
+	"message.cordraconis.gardien_phase2": "\"Vaelthor... forgive me...\" The Ash answers the Guardian's call!",
+	"message.cordraconis.gardien_vaincu": "The First Guardian crumbles. The first Shard of Vaelthor's heart is free."
+}

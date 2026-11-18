@@ -1,0 +1,15 @@
+// Ce fichier est lu en premier par Gradle : il indique où trouver les plugins
+// (dont Fabric Loom, l'outil qui sait compiler un mod Minecraft).
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+// Nom du projet (sert aussi de nom au fichier .jar produit)
+rootProject.name = 'cor-draconis'

@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:cobbled_deepslate",
+    "minecraft:amethyst_shard",
+    "minecraft:glistering_melon_slice"
+  ],
+  "result": { "id": "cordraconis:rune_de_vigueur" }
+}

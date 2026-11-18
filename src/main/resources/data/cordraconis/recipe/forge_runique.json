@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "B": "minecraft:blaze_powder",
+    "S": "minecraft:smithing_table",
+    "D": "minecraft:polished_deepslate"
+  },
+  "pattern": [
+    "IBI",
+    "DSD",
+    "DDD"
+  ],
+  "result": { "id": "cordraconis:forge_runique" }
+}

@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:glass_bottle",
+    "cordraconis:cendre_ardente",
+    "minecraft:snowball"
+  ],
+  "result": { "id": "cordraconis:fiole_de_cendre_froide" }
+}

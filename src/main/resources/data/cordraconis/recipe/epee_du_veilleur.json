@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "D": "minecraft:diamond",
+    "B": "minecraft:blaze_rod",
+    "G": "minecraft:gold_ingot",
+    "A": "minecraft:amethyst_shard"
+  },
+  "pattern": [
+    " D ",
+    "ADA",
+    "GBG"
+  ],
+  "result": { "id": "cordraconis:epee_du_veilleur" }
+}
