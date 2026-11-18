@@ -7,6 +7,7 @@ import com.geckolib.animatable.manager.AnimatableManager;
 import com.geckolib.animation.AnimationController;
 import com.geckolib.animation.RawAnimation;
 import com.geckolib.animation.object.PlayState;
+import com.geckolib.constant.DataTickets;
 import com.geckolib.util.GeckoLibUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -67,6 +68,8 @@ public class CendreuxEntity extends Monster implements GeoEntity {
 	private static final RawAnimation ATTAQUE = RawAnimation.begin().thenPlay("animation.cendreux.attaque");
 	private static final RawAnimation EFFONDREMENT = RawAnimation.begin().thenPlayAndHold("animation.cendreux.effondrement");
 	private static final RawAnimation REFORMATION = RawAnimation.begin().thenPlay("animation.cendreux.reformation");
+	private static final RawAnimation MORT = RawAnimation.begin().thenPlayAndHold("animation.cendreux.mort");
+	private static final RawAnimation AMBIANCE = RawAnimation.begin().thenLoop("animation.cendreux.ambiance");
 
 	private final AnimatableInstanceCache cacheAnimations = GeckoLibUtil.createInstanceCache(this);
 
@@ -245,12 +248,17 @@ public class CendreuxEntity extends Monster implements GeoEntity {
 
 	/**
 	 * Déclare les "contrôleurs" d'animation.
-	 *  - "corps"   : choisit en continu entre repos, marche et effondrement ;
-	 *  - "actions" : joue à la demande (triggerAnim) l'attaque et la reformation.
+	 *  - "corps"    : choisit en continu entre repos, marche, effondrement et mort ;
+	 *  - "actions"  : joue à la demande (triggerAnim) l'attaque et la reformation ;
+	 *  - "ambiance" : battement du cœur, fragments de cendre en orbite, yeux qui vacillent.
+	 *    Il est "additif" : ses valeurs s'AJOUTENT aux autres animations au lieu de les remplacer.
 	 */
 	@Override
 	public void registerControllers(final AnimatableManager.ControllerRegistrar controleurs) {
 		controleurs.add(new AnimationController<CendreuxEntity>("corps", 4, test -> {
+			if (test.getDataOrDefault(DataTickets.IS_DEAD_OR_DYING, false)) {
+				return test.setAndContinue(MORT); // le cœur vient d'être brisé
+			}
 			if (test.animatable().estEffondre()) {
 				return test.setAndContinue(EFFONDREMENT);
 			}
@@ -259,6 +267,8 @@ public class CendreuxEntity extends Monster implements GeoEntity {
 		controleurs.add(new AnimationController<CendreuxEntity>("actions", 0, test -> PlayState.STOP)
 			.triggerableAnim("attaque", ATTAQUE)
 			.triggerableAnim("reformation", REFORMATION));
+		controleurs.add(new AnimationController<CendreuxEntity>("ambiance", 0, test -> test.setAndContinue(AMBIANCE))
+			.additiveAnimations());
 	}
 
 	@Override

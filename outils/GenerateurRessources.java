@@ -19,7 +19,10 @@ import javax.imageio.ImageIO;
  *    avec leur texture et leur "glowmask" (pixels lumineux) peintes automatiquement ;
  *  - les icônes 16x16 des objets, les textures de la Forge runique et son interface.
  *
- * ATTENTION : relancer l'outil ÉCRASE ces fichiers. Une fois que vous retouchez un modèle
+ * Les animations (geckolib/animations/entity/*.animation.json) sont écrites à la main :
+ * l'outil n'y touche pas. Si vous renommez un os ici, renommez-le aussi dans les animations.
+ *
+ * ATTENTION : relancer l'outil ÉCRASE les autres fichiers. Une fois que vous retouchez un modèle
  * ou une texture à la main (Blockbench, Aseprite...), ne relancez plus l'outil, ou
  * commentez la ligne correspondante dans main().
  *
@@ -50,8 +53,41 @@ public class GenerateurRessources {
 	//  MODÈLES GECKOLIB
 	// =================================================================================
 
-	/** Matières : décident de la peinture de chaque cube. */
-	enum Matiere { CENDRE, BRAISE, ARMURE, OR, TISSU, LAME, CUIR }
+	/**
+	 * Matières : chacune a une "rampe" de couleurs, de la plus sombre à la plus claire.
+	 * La peinture choisit une couleur de la rampe selon l'éclairage de chaque pixel.
+	 *
+	 * NOTION JAVA — une enum peut avoir des champs et un constructeur, comme une classe.
+	 */
+	enum Matiere {
+		//          rampe (sombre -> clair)                                                                          grain  brille à partir de
+		CENDRE(new int[] {0xFF1B1716, 0xFF2E2826, 0xFF4A423E, 0xFF6D645D, 0xFF958B82, 0xFFBDB3A8}, 0.14, -1),
+		CHARBON(new int[] {0xFF0C0A0A, 0xFF171313, 0xFF241E1D, 0xFF332B29, 0xFF453B38}, 0.12, -1),
+		GRIFFE(new int[] {0xFF0C0A0A, 0xFF171313, 0xFF241E1D, 0xFF332B29, 0xFF453B38}, 0.10, -1),
+		COTE(new int[] {0xFF2E2824, 0xFF554C45, 0xFF847A70, 0xFFB2A898, 0xFFDAD2C2}, 0.10, -1),
+		BRAISE(new int[] {0xFFFFFFFF}, 0.0, 0),
+		CAVITE(new int[] {0xFF140404, 0xFF2E0806, 0xFF5A1206, 0xFF8E2408, 0xFFC8400C, 0xFFFF7A1A}, 0.10, 3),
+		CRISTAL(new int[] {0xFF3E0E06, 0xFF7A2008, 0xFFC0480C, 0xFFF07A1E, 0xFFFFB45A, 0xFFFFE8B8}, 0.08, 3),
+		ARMURE(new int[] {0xFF0E0F15, 0xFF181A23, 0xFF242733, 0xFF323646, 0xFF444A5E, 0xFF5E6580, 0xFF8890AA}, 0.06, -1),
+		OR(new int[] {0xFF2A1806, 0xFF4A2E0C, 0xFF744C14, 0xFFA2701E, 0xFFCE9A30, 0xFFF0C850, 0xFFFFF0A0}, 0.06, -1),
+		TISSU(new int[] {0xFF12040A, 0xFF280810, 0xFF420E16, 0xFF62161C, 0xFF861F22, 0xFFA8302A}, 0.08, -1),
+		TISSU_DECHIRE(new int[] {0xFF12040A, 0xFF280810, 0xFF420E16, 0xFF62161C, 0xFF861F22, 0xFFA8302A}, 0.08, -1),
+		LAME(new int[] {0xFF1A1E26, 0xFF323844, 0xFF525A6A, 0xFF7C8698, 0xFFAAB4C6, 0xFFD6DEEC, 0xFFFFFFFF}, 0.05, -1),
+		CUIR(new int[] {0xFF140A06, 0xFF26160E, 0xFF3C2416, 0xFF543420, 0xFF6E4830}, 0.08, -1),
+		MAILLE(new int[] {0xFF101218, 0xFF20232C, 0xFF363A48, 0xFF525868, 0xFF7A8294}, 0.06, -1);
+
+		final int[] rampe;
+		/** Variation aléatoire de lumière d'un pixel à l'autre. */
+		final double grain;
+		/** Indice de la rampe à partir duquel le pixel brille dans le noir (-1 : jamais). */
+		final int brillance;
+
+		Matiere(final int[] rampe, final double grain, final int brillance) {
+			this.rampe = rampe;
+			this.grain = grain;
+			this.brillance = brillance;
+		}
+	}
 
 	/** Un cube Blockbench (coordonnées en pixels, 16 px = 1 bloc). */
 	static final class Cube {
@@ -84,88 +120,244 @@ public class GenerateurRessources {
 			this.nom = nom; this.parent = parent; this.pivot = pivot;
 		}
 
+		/** Ajoute un cube droit. NOTION JAVA — "return this" permet d'enchaîner les appels. */
 		Os cube(double ox, double oy, double oz, int sx, int sy, int sz, Matiere m) {
 			cubes.add(new Cube(ox, oy, oz, sx, sy, sz, m, null, null));
 			return this;
 		}
 
-		Os cubeTourne(double ox, double oy, double oz, int sx, int sy, int sz, Matiere m, double[] pivot, double[] rotation) {
-			cubes.add(new Cube(ox, oy, oz, sx, sy, sz, m, pivot, rotation));
+		/** Ajoute un cube tourné (pivot px,py,pz ; angles rx,ry,rz en degrés). */
+		Os cubeTourne(double ox, double oy, double oz, int sx, int sy, int sz, Matiere m,
+				double px, double py, double pz, double rx, double ry, double rz) {
+			cubes.add(new Cube(ox, oy, oz, sx, sy, sz, m, new double[] {px, py, pz}, new double[] {rx, ry, rz}));
 			return this;
+		}
+
+		/** Copie symétrique (gauche <-> droite) d'un os : x devient -x. */
+		static Os miroir(Os source, String nom, String parent) {
+			Os copie = new Os(nom, parent, -source.pivot[0], source.pivot[1], source.pivot[2]);
+			for (Cube c : source.cubes) {
+				double[] pivot = c.pivot == null ? null : new double[] {-c.pivot[0], c.pivot[1], c.pivot[2]};
+				double[] rotation = c.rotation == null ? null : new double[] {c.rotation[0], -c.rotation[1], -c.rotation[2]};
+				copie.cubes.add(new Cube(-(c.ox + c.sx), c.oy, c.oz, c.sx, c.sy, c.sz, c.matiere, pivot, rotation));
+			}
+			return copie;
 		}
 	}
 
+	// --- Le Cendreux ------------------------------------------------------------------
+
+	/**
+	 * Une goule de cendre voûtée : longs bras griffus, cage thoracique ouverte sur un cœur
+	 * de braise, crâne fendu avec une mâchoire mobile, cristaux de cendre ardente dans le dos.
+	 * Les "fragments" flottent autour de lui ; le "tas" n'apparaît que lorsqu'il s'effondre.
+	 */
 	private static void genererCendreux() throws IOException {
 		List<Os> os = new ArrayList<>();
 		os.add(new Os("racine", null, 0, 0, 0));
-		os.add(new Os("corps", "racine", 0, 14, 0)
-			.cube(-4.5, 14, -2.5, 9, 11, 5, Matiere.CENDRE)
-			.cubeTourne(-7, 23, -2, 3, 2, 4, Matiere.CENDRE, new double[] {-5.5, 24, 0}, new double[] {0, 0, 20}));
-		os.add(new Os("coeur", "corps", 0, 19.5, -2.5)
-			.cube(-1.5, 18, -3, 3, 3, 1, Matiere.BRAISE));
-		os.add(new Os("tete", "corps", 0, 25, -1)
-			.cube(-4, 25, -4.5, 8, 8, 8, Matiere.CENDRE)
-			.cubeTourne(-3, 32, -1, 1, 3, 1, Matiere.CENDRE, new double[] {-2.5, 33, -0.5}, new double[] {0, 0, 15})
-			.cubeTourne(1.5, 32, 0.5, 1, 2, 1, Matiere.CENDRE, new double[] {2, 33, 1}, new double[] {-10, 0, -20}));
-		os.add(new Os("yeux", "tete", 0, 28.5, -4.5)
-			.cube(-3, 28, -5, 2, 1, 1, Matiere.BRAISE)
-			.cube(1, 28, -5, 2, 1, 1, Matiere.BRAISE));
-		os.add(new Os("bras_droit", "corps", -5.5, 24, 0)
-			.cube(-8, 13, -2, 3, 12, 4, Matiere.CENDRE)
-			.cube(-8.5, 10, -2.5, 4, 4, 5, Matiere.CENDRE));
-		os.add(new Os("bras_gauche", "corps", 5.5, 24, 0)
-			.cube(5, 13, -2, 3, 12, 4, Matiere.CENDRE)
-			.cube(4.5, 10, -2.5, 4, 4, 5, Matiere.CENDRE));
-		os.add(new Os("jambe_droite", "racine", -2.2, 14, 0)
-			.cube(-4.2, 0, -2, 4, 14, 4, Matiere.CENDRE));
-		os.add(new Os("jambe_gauche", "racine", 2.2, 14, 0)
-			.cube(0.2, 0, -2, 4, 14, 4, Matiere.CENDRE));
 
-		ecrireModele("cendreux", os, 64, 64, 2.0, 3.0, 1337L);
+		// Jambes (cuisse + tibia, pour plier le genou).
+		Os jambeDroite = new Os("jambe_droite", "racine", -2.5, 13, 0.5)
+			.cube(-4.5, 7, -1.5, 4, 6, 4, Matiere.CENDRE);
+		Os tibiaDroit = new Os("tibia_droit", "jambe_droite", -2.5, 7, 0.5)
+			.cube(-4, 1, -1, 3, 6, 3, Matiere.CHARBON)
+			.cube(-4.5, 0, -2.5, 4, 2, 4, Matiere.CHARBON)
+			.cube(-4.5, 0, -3.5, 1, 1, 1, Matiere.GRIFFE)
+			.cube(-2.5, 0, -3.5, 1, 1, 1, Matiere.GRIFFE);
+		os.add(jambeDroite);
+		os.add(tibiaDroit);
+		os.add(Os.miroir(jambeDroite, "jambe_gauche", "racine"));
+		os.add(Os.miroir(tibiaDroit, "tibia_gauche", "jambe_gauche"));
+
+		// Corps : bassin, taille fine, cage thoracique creuse avec côtes, bosse et cristaux.
+		os.add(new Os("corps", "racine", 0, 13, 0.5)
+			.cube(-4, 12, -1.5, 8, 4, 4, Matiere.CHARBON)
+			.cube(-3.5, 16, -1, 7, 4, 4, Matiere.CENDRE)
+			.cube(-5.5, 20, 0, 11, 8, 4, Matiere.CENDRE)
+			.cube(-5.5, 20, -3, 2, 8, 3, Matiere.CENDRE)
+			.cube(3.5, 20, -3, 2, 8, 3, Matiere.CENDRE)
+			.cube(-5.5, 27, -3, 11, 2, 3, Matiere.CENDRE)
+			.cube(-3.5, 20, -0.5, 7, 7, 1, Matiere.CAVITE)
+			.cube(-3.5, 21, -3.2, 7, 1, 1, Matiere.COTE)
+			.cube(-3.5, 23, -3.2, 7, 1, 1, Matiere.COTE)
+			.cube(-3.5, 25, -3.2, 7, 1, 1, Matiere.COTE)
+			.cubeTourne(-5, 26, 0.5, 10, 4, 5, Matiere.CENDRE, 0, 26, 3, -15, 0, 0)
+			.cubeTourne(-3.5, 29, 2.5, 2, 5, 2, Matiere.CRISTAL, -2.5, 29, 3.5, -35, 0, 20)
+			.cubeTourne(1.5, 29, 2, 2, 6, 2, Matiere.CRISTAL, 2.5, 29, 3, -40, 0, -15)
+			.cubeTourne(-0.5, 28, 4, 1, 4, 1, Matiere.CRISTAL, 0, 28, 4.5, -60, 0, 0)
+			.cubeTourne(3.5, 27, 2, 1, 3, 1, Matiere.CENDRE, 4, 27, 2.5, -20, 0, -35));
+		os.add(new Os("coeur", "corps", 0, 23.5, -1.5)
+			.cube(-1.5, 22, -2.5, 3, 3, 2, Matiere.BRAISE));
+
+		// "regard" ne contient aucun cube : le rendu le tourne vers la cible (suivi de la tête).
+		os.add(new Os("regard", "corps", 0, 28.5, -1.5));
+		os.add(new Os("tete", "regard", 0, 28.5, -1.5)
+			.cube(-3.5, 29, -6, 7, 6, 7, Matiere.CENDRE)
+			.cube(-4, 33, -6.6, 8, 2, 2, Matiere.CHARBON)
+			.cube(-2.5, 29, -6.3, 5, 1, 1, Matiere.BRAISE)
+			.cubeTourne(-3, 35, -4, 1, 3, 1, Matiere.CENDRE, -2.5, 35, -3.5, 0, 0, 15)
+			.cubeTourne(-1, 35, -5, 1, 2, 1, Matiere.CHARBON, -0.5, 35, -4.5, -10, 0, 0)
+			.cubeTourne(1.5, 35, -3.5, 1, 4, 1, Matiere.CENDRE, 2, 35, -3, -10, 0, -15)
+			.cubeTourne(-1, 35, -1.5, 2, 2, 2, Matiere.CRISTAL, 0, 35, -0.5, -20, 0, 10));
+		os.add(new Os("yeux", "tete", 0, 31.5, -6.3)
+			.cube(-3, 31, -6.4, 2, 1, 1, Matiere.BRAISE)
+			.cube(1, 31, -6.4, 2, 1, 1, Matiere.BRAISE));
+		os.add(new Os("machoire", "tete", 0, 29.5, 0)
+			.cube(-3, 27.5, -6, 6, 2, 6, Matiere.CHARBON)
+			.cube(-2.5, 29.5, -6.2, 1, 1, 1, Matiere.COTE)
+			.cube(1.5, 29.5, -6.2, 1, 1, 1, Matiere.COTE));
+
+		// Bras (épaule + bras, puis avant-bras avec poing et griffes).
+		Os brasDroit = new Os("bras_droit", "corps", -5.5, 26.5, 0.5)
+			.cube(-8.5, 24, -2, 4, 4, 5, Matiere.CENDRE)
+			.cubeTourne(-8, 27.5, -0.5, 2, 3, 2, Matiere.CRISTAL, -7, 28, 0.5, 0, 0, 25)
+			.cube(-7.5, 17, -1, 3, 7, 3, Matiere.CENDRE);
+		Os avantBrasDroit = new Os("avant_bras_droit", "bras_droit", -6, 17.5, 0.5)
+			.cube(-8, 10, -1.5, 4, 8, 4, Matiere.CENDRE)
+			.cubeTourne(-8.5, 14, 0, 1, 3, 1, Matiere.CENDRE, -8, 14, 0.5, 0, 0, 30)
+			.cube(-8, 8, -2, 4, 2, 4, Matiere.CHARBON)
+			.cube(-8, 5, -2, 1, 3, 1, Matiere.GRIFFE)
+			.cube(-6.5, 5, -2.5, 1, 3, 1, Matiere.GRIFFE)
+			.cube(-5, 5, -2, 1, 3, 1, Matiere.GRIFFE);
+		os.add(brasDroit);
+		os.add(avantBrasDroit);
+		os.add(Os.miroir(brasDroit, "bras_gauche", "corps"));
+		os.add(Os.miroir(avantBrasDroit, "avant_bras_gauche", "bras_gauche"));
+
+		// Fragments de cendre qui tournent autour de lui (animation "ambiance").
+		os.add(new Os("fragments", "racine", 0, 18, 0.5)
+			.cubeTourne(-11, 22, -0.5, 2, 2, 2, Matiere.CENDRE, -10, 23, 0.5, 45, 30, 0)
+			.cubeTourne(8.5, 16, -4, 1, 1, 1, Matiere.CRISTAL, 9, 16.5, -3.5, 30, 45, 0)
+			.cubeTourne(-3, 12, 8.5, 2, 1, 2, Matiere.CENDRE, -2, 12.5, 9.5, 0, 45, 20)
+			.cubeTourne(6, 25, 6, 1, 2, 1, Matiere.CHARBON, 6.5, 26, 6.5, 20, 0, 30)
+			.cubeTourne(-8, 14, -7, 1, 1, 1, Matiere.BRAISE, -7.5, 14.5, -6.5, 45, 45, 0)
+			.cubeTourne(3, 9, -9.5, 1, 1, 1, Matiere.CENDRE, 3.5, 9.5, -9, 30, 0, 45));
+
+		// Tas de cendre (invisible tant qu'il tient debout) et le cœur posé dessus.
+		os.add(new Os("tas", "racine", 0, 0, 0.5)
+			.cube(-6, 0, -5.5, 12, 2, 12, Matiere.CENDRE)
+			.cube(-4.5, 2, -4, 9, 2, 9, Matiere.CENDRE)
+			.cube(-3, 4, -2.5, 6, 1, 6, Matiere.CENDRE)
+			.cube(-7.5, 0, 2, 3, 1, 3, Matiere.CENDRE)
+			.cube(4, 0, -6.5, 3, 1, 2, Matiere.CHARBON)
+			.cubeTourne(4.5, 0, 3, 2, 2, 5, Matiere.CHARBON, 5.5, 1, 5.5, 0, 30, 0)
+			.cubeTourne(-5.5, 1, -6.5, 4, 3, 4, Matiere.CENDRE, -3.5, 2.5, -4.5, 0, -20, 10));
+		os.add(new Os("coeur_tas", "tas", 0, 6, 0.5)
+			.cube(-1.5, 4.5, -1, 3, 3, 3, Matiere.BRAISE));
+
+		ecrireModele("cendreux", os, 128, 36.0, 2.0, 3.0, 1337L);
 	}
 
+	// --- Ser Aldric, Premier Gardien --------------------------------------------------
+
+	/**
+	 * Un chevalier colossal rongé par la Cendre : armure noire à liserés d'or, heaume à cornes
+	 * de dragon et plumet, épaulières à pointes, cape en deux pans, épée à garde ailée gravée
+	 * de runes, cristaux de cendre ardente qui percent l'armure et gravitent autour de lui.
+	 */
 	private static void genererPremierGardien() throws IOException {
 		List<Os> os = new ArrayList<>();
 		os.add(new Os("racine", null, 0, 0, 0));
-		os.add(new Os("bassin", "racine", 0, 27, 0)
-			.cube(-6.5, 24, -3.5, 13, 6, 7, Matiere.ARMURE)
-			.cube(-7.5, 21, -4.5, 15, 4, 9, Matiere.TISSU));
-		os.add(new Os("torse", "bassin", 0, 30, 0)
-			.cube(-7, 30, -4, 14, 16, 8, Matiere.ARMURE)
-			.cube(-5, 32, -5, 10, 11, 1, Matiere.OR));
-		os.add(new Os("coeur", "torse", 0, 39, -5)
-			.cube(-2, 37, -6, 4, 4, 1, Matiere.BRAISE));
-		os.add(new Os("cape", "torse", 0, 45, 4)
-			.cube(-6, 16, 4, 12, 29, 1, Matiere.TISSU));
-		os.add(new Os("tete", "torse", 0, 46, 0)
-			.cube(-4.5, 46, -4.5, 9, 10, 9, Matiere.ARMURE)
-			.cube(-1, 55, -4, 2, 3, 8, Matiere.OR));
-		os.add(new Os("visiere", "tete", 0, 50.5, -4.5)
-			.cube(-3.5, 50, -5, 7, 1, 1, Matiere.BRAISE));
-		os.add(new Os("bras_droit", "torse", -9, 43, 0)
-			.cube(-12.5, 39, -5, 6, 6, 10, Matiere.OR)
-			.cube(-11.5, 24, -3, 5, 17, 6, Matiere.ARMURE)
-			.cube(-12, 20, -3.5, 6, 5, 7, Matiere.CUIR));
-		os.add(new Os("epee", "bras_droit", -9, 22, 0)
-			.cube(-10, 18, -1, 2, 6, 2, Matiere.CUIR)
-			.cube(-11, 17, -4, 4, 1, 8, Matiere.OR)
-			.cube(-9.5, 1, -1.5, 1, 16, 3, Matiere.LAME));
-		os.add(new Os("bras_gauche", "torse", 9, 43, 0)
-			.cube(6.5, 39, -5, 6, 6, 10, Matiere.OR)
-			.cube(6.5, 24, -3, 5, 17, 6, Matiere.ARMURE)
-			.cube(6, 20, -3.5, 6, 5, 7, Matiere.CUIR));
-		os.add(new Os("jambe_droite", "bassin", -3.5, 25, 0)
-			.cube(-6, 4, -3, 5, 21, 6, Matiere.ARMURE)
-			.cube(-6.5, 0, -4, 6, 5, 8, Matiere.CUIR));
-		os.add(new Os("jambe_gauche", "bassin", 3.5, 25, 0)
-			.cube(1, 4, -3, 5, 21, 6, Matiere.ARMURE)
-			.cube(0.5, 0, -4, 6, 5, 8, Matiere.CUIR));
 
-		ecrireModele("premier_gardien", os, 128, 128, 3.0, 4.5, 777L);
+		os.add(new Os("bassin", "racine", 0, 24, 0)
+			.cube(-6.5, 22, -3.5, 13, 5, 7, Matiere.ARMURE)
+			.cube(-7, 26, -4, 14, 2, 8, Matiere.CUIR)
+			.cube(-2, 25.5, -4.6, 4, 3, 1, Matiere.OR)
+			.cubeTourne(-7, 17, -4.3, 5, 6, 1, Matiere.ARMURE, -4.5, 23, -4, -10, 0, 0)
+			.cubeTourne(2, 17, -4.3, 5, 6, 1, Matiere.ARMURE, 4.5, 23, -4, -10, 0, 0)
+			.cube(-7.6, 18, -2.5, 1, 6, 5, Matiere.ARMURE)
+			.cube(6.6, 18, -2.5, 1, 6, 5, Matiere.ARMURE));
+		os.add(new Os("tabard", "bassin", 0, 26, -4.4)
+			.cube(-2.5, 11, -4.9, 5, 15, 1, Matiere.TISSU_DECHIRE));
+
+		Os jambeDroite = new Os("jambe_droite", "bassin", -3.5, 22, 0)
+			.cube(-6, 12, -2.5, 5, 10, 5, Matiere.MAILLE)
+			.cube(-6.5, 14, -3.2, 6, 7, 1, Matiere.ARMURE);
+		Os tibiaDroit = new Os("tibia_droit", "jambe_droite", -3.5, 12, 0)
+			.cube(-6, 3, -3, 5, 9, 6, Matiere.ARMURE)
+			.cube(-6.5, 9.5, -4, 6, 4, 2, Matiere.ARMURE)
+			.cube(-4.5, 10.5, -5, 2, 2, 1, Matiere.OR)
+			.cube(-6.5, 0, -5, 6, 3, 8, Matiere.ARMURE)
+			.cube(-5.5, 0, -6, 4, 2, 1, Matiere.ARMURE);
+		os.add(jambeDroite);
+		os.add(tibiaDroit);
+		os.add(Os.miroir(jambeDroite, "jambe_gauche", "bassin"));
+		os.add(Os.miroir(tibiaDroit, "tibia_gauche", "jambe_gauche"));
+
+		os.add(new Os("torse", "bassin", 0, 27, 0)
+			.cube(-5.5, 27, -3, 11, 6, 6, Matiere.MAILLE)
+			.cube(-6, 29, -3.7, 12, 4, 1, Matiere.ARMURE)
+			.cube(-7.5, 33, -4.5, 15, 11, 9, Matiere.ARMURE)
+			.cube(-3.5, 35, -5.3, 7, 7, 1, Matiere.OR)
+			.cube(-5, 43, -4, 10, 3, 8, Matiere.OR)
+			.cubeTourne(3, 41, 3, 2, 4, 2, Matiere.CRISTAL, 4, 41, 4, -25, 0, -20)
+			.cubeTourne(-5, 38, 3.5, 2, 3, 2, Matiere.CRISTAL, -4, 38, 4.5, -35, 0, 15)
+			.cubeTourne(4.5, 34, -5.5, 2, 2, 1, Matiere.CRISTAL, 5.5, 35, -5, 0, 0, 20));
+		os.add(new Os("coeur", "torse", 0, 38.5, -5.8)
+			.cube(-1.5, 37, -6.3, 3, 3, 1, Matiere.BRAISE));
+		os.add(new Os("cape", "torse", 0, 44, 4.5)
+			.cube(-7, 30, 4.5, 14, 14, 1, Matiere.TISSU));
+		os.add(new Os("cape_bas", "cape", 0, 30, 5)
+			.cube(-7, 13, 4.5, 14, 17, 1, Matiere.TISSU_DECHIRE));
+
+		os.add(new Os("regard", "torse", 0, 45, 0));
+		Os tete = new Os("tete", "regard", 0, 45, 0)
+			.cube(-4.5, 45, -4.5, 9, 9, 9, Matiere.ARMURE)
+			.cube(-4, 46, -5.5, 8, 6, 1, Matiere.ARMURE)
+			.cube(-5, 52, -5, 10, 1, 10, Matiere.OR)
+			.cube(-0.5, 54, -4.5, 1, 2, 9, Matiere.OR);
+		// Cornes de dragon (3 segments chacune, la gauche est le miroir de la droite).
+		Os corne = new Os("corne", "tete", 0, 0, 0)
+			.cube(-7.5, 50.5, -1.5, 3, 3, 3, Matiere.COTE)
+			.cubeTourne(-8, 53, -1, 2, 4, 2, Matiere.COTE, -7, 53, 0, -30, 0, 20)
+			.cubeTourne(-9, 55.5, 1, 1, 3, 1, Matiere.COTE, -8.5, 55.5, 1.5, -55, 0, 30);
+		tete.cubes.addAll(corne.cubes);
+		tete.cubes.addAll(Os.miroir(corne, "corne", "tete").cubes);
+		os.add(tete);
+		os.add(new Os("visiere", "tete", 0, 49.5, -5.6)
+			.cube(-3, 49, -5.8, 6, 1, 1, Matiere.BRAISE)
+			.cube(-0.5, 46.5, -5.8, 1, 2, 1, Matiere.BRAISE));
+		os.add(new Os("plumet", "tete", 0, 55, 1)
+			.cube(-1, 55, -2, 2, 2, 7, Matiere.TISSU)
+			.cube(-1, 50, 4, 2, 6, 2, Matiere.TISSU_DECHIRE));
+
+		Os brasDroit = new Os("bras_droit", "torse", -9.5, 42, 0)
+			.cube(-14.5, 39, -5, 8, 5, 10, Matiere.ARMURE)
+			.cube(-15, 38.5, -5.5, 9, 1, 11, Matiere.OR)
+			.cube(-14, 36, -4.5, 7, 3, 9, Matiere.ARMURE)
+			.cubeTourne(-13, 43, -1, 2, 5, 2, Matiere.ARMURE, -12, 43, 0, 0, 0, 25)
+			.cubeTourne(-11, 43.5, -3.5, 1, 3, 1, Matiere.OR, -10.5, 43.5, -3, 0, 0, 10)
+			.cubeTourne(-12.5, 43, 2, 2, 3, 2, Matiere.CRISTAL, -11.5, 43, 3, -20, 0, 30)
+			.cube(-12, 31, -2.5, 5, 8, 5, Matiere.MAILLE);
+		Os avantBrasDroit = new Os("avant_bras_droit", "bras_droit", -9.5, 31, 0)
+			.cube(-12.5, 22, -3, 6, 9, 6, Matiere.ARMURE)
+			.cube(-13, 27.5, -3.5, 7, 3, 7, Matiere.OR)
+			.cube(-12, 19, -2.5, 5, 3, 5, Matiere.CUIR);
+		os.add(brasDroit);
+		os.add(avantBrasDroit);
+		os.add(new Os("epee", "avant_bras_droit", -9.5, 20.5, 0)
+			.cube(-10.5, 18, -1, 2, 5, 2, Matiere.CUIR)
+			.cube(-13, 16, -1, 7, 2, 2, Matiere.OR)
+			.cubeTourne(-14.5, 16.5, -1, 2, 3, 2, Matiere.OR, -13.5, 17.5, 0, 0, 0, -30)
+			.cubeTourne(-6.5, 16.5, -1, 2, 3, 2, Matiere.OR, -5.5, 17.5, 0, 0, 0, 30)
+			.cube(-10, 16.5, -1.3, 1, 1, 1, Matiere.BRAISE)
+			.cube(-11, 2, -0.5, 3, 14, 1, Matiere.LAME)
+			.cube(-10.5, 0, -0.5, 2, 2, 1, Matiere.LAME));
+		os.add(Os.miroir(brasDroit, "bras_gauche", "torse"));
+		os.add(Os.miroir(avantBrasDroit, "avant_bras_gauche", "bras_gauche"));
+
+		// Éclats de cendre ardente en orbite (animation "ambiance").
+		os.add(new Os("eclats_orbitaux", "racine", 0, 36, 0)
+			.cubeTourne(-15, 38, -1, 2, 4, 2, Matiere.CRISTAL, -14, 40, 0, 15, 0, 20)
+			.cubeTourne(13, 34, -1, 2, 3, 2, Matiere.CRISTAL, 14, 35.5, 0, -10, 0, -25)
+			.cubeTourne(-1, 42, 13, 2, 3, 2, Matiere.CRISTAL, 0, 43.5, 14, 25, 0, 10)
+			.cubeTourne(-1, 30, -15, 1, 3, 1, Matiere.CRISTAL, -0.5, 31.5, -14.5, -20, 0, 15));
+
+		ecrireModele("premier_gardien", os, 128, 58.0, 3.0, 4.5, 777L);
 	}
 
 	/** Place les cubes dans la texture, peint texture + glowmask, puis écrit le .geo.json. */
-	private static void ecrireModele(String nom, List<Os> os, int largeurTex, int hauteurTex, double largeurVisible, double hauteurVisible, long graine) throws IOException {
+	private static void ecrireModele(String nom, List<Os> os, int largeurTex, double hauteurModele, double largeurVisible, double hauteurVisible, long graine) throws IOException {
 		// 1. Rangement des zones UV ("box UV" de Blockbench) par rangées.
 		List<Cube> tous = new ArrayList<>();
 		for (Os o : os) tous.addAll(o.cubes);
@@ -183,19 +375,19 @@ public class GenerateurRessources {
 			x += c.largeurUv();
 			hauteurRangee = Math.max(hauteurRangee, c.hauteurUv());
 		}
-		if (y + hauteurRangee > hauteurTex) {
-			throw new IllegalStateException("Texture trop petite pour " + nom);
-		}
+		// Hauteur de texture : juste ce qu'il faut, arrondie au multiple de 16 supérieur.
+		int hauteurTex = ((y + hauteurRangee + 15) / 16) * 16;
 
 		// 2. Peinture.
-		BufferedImage texture = new BufferedImage(largeurTex, hauteurTex, BufferedImage.TYPE_INT_ARGB);
-		BufferedImage lueur = new BufferedImage(largeurTex, hauteurTex, BufferedImage.TYPE_INT_ARGB);
-		Random alea = new Random(graine);
+		Peintre peintre = new Peintre(
+			new BufferedImage(largeurTex, hauteurTex, BufferedImage.TYPE_INT_ARGB),
+			new BufferedImage(largeurTex, hauteurTex, BufferedImage.TYPE_INT_ARGB),
+			new Random(graine), hauteurModele);
 		for (Cube c : tous) {
-			peindreCube(texture, lueur, c, alea);
+			peindreCube(peintre, c);
 		}
-		ecrireImage(texture, "textures/entity/" + nom + ".png");
-		ecrireImage(lueur, "textures/entity/" + nom + "_glowmask.png");
+		ecrireImage(peintre.tex, "textures/entity/" + nom + ".png");
+		ecrireImage(peintre.lueur, "textures/entity/" + nom + "_glowmask.png");
 
 		// 3. Fichier .geo.json (format Bedrock 1.12.0, lu par GeckoLib et Blockbench).
 		StringBuilder json = new StringBuilder();
@@ -236,70 +428,169 @@ public class GenerateurRessources {
 		ecrireTexte(json.toString(), "geckolib/models/entity/" + nom + ".geo.json");
 	}
 
+	// =================================================================================
+	//  PEINTURE DES TEXTURES DE CRÉATURES
+	// =================================================================================
+
 	/**
-	 * Peint les 6 faces d'un cube dans sa zone "box UV" :
-	 *   [  ][haut ][bas ][  ]
-	 *   [est][avant][ouest][arrière]
+	 * Tout ce dont la peinture a besoin.
+	 * NOTION JAVA — "record" : petite classe immuable dont Java écrit lui-même le constructeur
+	 * et les accesseurs (peintre.tex(), peintre.alea()...).
 	 */
-	private static void peindreCube(BufferedImage tex, BufferedImage lueur, Cube c, Random alea) {
-		int u = c.u, v = c.v, w = c.sx, h = c.sy, d = c.sz;
-		peindreFace(tex, lueur, u + d, v, w, d, c.matiere, alea, Face.DESSUS);
-		peindreFace(tex, lueur, u + d + w, v, w, d, c.matiere, alea, Face.DESSOUS);
-		peindreFace(tex, lueur, u, v + d, d, h, c.matiere, alea, Face.COTE);
-		peindreFace(tex, lueur, u + d, v + d, w, h, c.matiere, alea, Face.AVANT);
-		peindreFace(tex, lueur, u + d + w, v + d, d, h, c.matiere, alea, Face.COTE);
-		peindreFace(tex, lueur, u + 2 * d + w, v + d, w, h, c.matiere, alea, Face.ARRIERE);
+	record Peintre(BufferedImage tex, BufferedImage lueur, Random alea, double hauteurModele) {
 	}
 
 	enum Face { DESSUS, DESSOUS, COTE, AVANT, ARRIERE }
 
-	private static void peindreFace(BufferedImage tex, BufferedImage lueur, int x0, int y0, int w, int h, Matiere m, Random alea, Face face) {
-		if (w <= 0 || h <= 0) return;
-		for (int y = 0; y < h; y++) {
-			for (int x = 0; x < w; x++) {
-				int couleur = couleurDeBase(m, alea, x, y, w, h, face);
-				// Ombrage : bords légèrement plus sombres, dessous plus sombre, dessus plus clair.
-				boolean bord = x == 0 || y == 0 || x == w - 1 || y == h - 1;
-				float lumiere = bord ? 0.82F : 1.0F;
-				if (face == Face.DESSOUS) lumiere *= 0.7F;
-				if (face == Face.DESSUS) lumiere *= 1.1F;
-				if (face == Face.COTE) lumiere *= 0.9F;
-				if (m == Matiere.BRAISE) lumiere = 1.0F;
-				poser(tex, x0 + x, y0 + y, eclaircir(couleur, lumiere));
+	/** Matrice de Bayer 4x4 : trame régulière qui mélange deux couleurs voisines (effet pixel art). */
+	private static final int[][] BAYER = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
+
+	/**
+	 * Peint les 6 faces d'un cube dans sa zone "box UV" :
+	 *   [  ][haut ][bas ][  ]
+	 *   [côté][avant][côté][arrière]
+	 */
+	private static void peindreCube(Peintre p, Cube c) {
+		int u = c.u, v = c.v, w = c.sx, h = c.sy, d = c.sz;
+		peindreFace(p, c, Face.DESSUS, u + d, v, w, d);
+		peindreFace(p, c, Face.DESSOUS, u + d + w, v, w, d);
+		peindreFace(p, c, Face.COTE, u, v + d, d, h);
+		peindreFace(p, c, Face.AVANT, u + d, v + d, w, h);
+		peindreFace(p, c, Face.COTE, u + d + w, v + d, d, h);
+		peindreFace(p, c, Face.ARRIERE, u + 2 * d + w, v + d, w, h);
+	}
+
+	private static void peindreFace(Peintre p, Cube c, Face face, int x0, int y0, int fw, int fh) {
+		if (fw <= 0 || fh <= 0) return;
+		Matiere m = c.matiere;
+		boolean laterale = face == Face.AVANT || face == Face.ARRIERE || face == Face.COTE;
+
+		for (int r = 0; r < fh; r++) {
+			for (int x = 0; x < fw; x++) {
+				int couleur;
+				boolean brille;
 				if (m == Matiere.BRAISE) {
-					poser(lueur, x0 + x, y0 + y, couleur);
+					couleur = couleurBraise(x, r, fw, fh);
+					brille = true;
+				} else {
+					// Hauteur réelle du pixel dans le modèle (0 = pieds, 1 = sommet).
+					double yMonde = laterale ? c.oy + c.sy - (r + 0.5) : (face == Face.DESSUS ? c.oy + c.sy : c.oy);
+					double lumiere = lumiereDeBase(face, laterale, x, r, fw, fh)
+						+ (p.alea().nextDouble() - 0.5) * m.grain
+						+ modulation(m, laterale, x, r, fw, fh, yMonde / p.hauteurModele(), c);
+					int indice = indiceTrame(m.rampe.length, lumiere, x, r);
+					couleur = m.rampe[indice];
+					brille = m.brillance >= 0 && indice >= m.brillance;
 				}
+				poser(p.tex(), x0 + x, y0 + r, couleur);
+				if (brille) poser(p.lueur(), x0 + x, y0 + r, couleur);
 			}
 		}
+		details(p, c, face, laterale, x0, y0, fw, fh);
+	}
 
-		// Détails propres à chaque matière.
-		switch (m) {
-			case CENDRE -> fissures(tex, lueur, x0, y0, w, h, alea, Math.max(1, (w * h) / 40), 0xFF2A2522, true);
+	/** Éclairage venu d'en haut : dessus clair, dessous sombre, arêtes biseautées. */
+	private static double lumiereDeBase(Face face, boolean laterale, int x, int r, int fw, int fh) {
+		double l = switch (face) {
+			case DESSUS -> 0.86;
+			case AVANT -> 0.66;
+			case COTE -> 0.56;
+			case ARRIERE -> 0.48;
+			case DESSOUS -> 0.26;
+		};
+		if (laterale && fh > 1) l += 0.16 * (0.5 - r / (double) (fh - 1));
+		if (fw >= 3 && fh >= 3) {
+			if (r == 0 || x == 0) l += 0.1;
+			if (r == fh - 1 || x == fw - 1) l -= 0.1;
+		}
+		return l;
+	}
+
+	/** Motifs propres à chaque matière (plis, mailles, lignes de plaques...). */
+	private static double modulation(Matiere m, boolean laterale, int x, int r, int fw, int fh, double hauteur, Cube c) {
+		return switch (m) {
+			case CENDRE, CHARBON, GRIFFE -> (hauteur - 0.55) * 0.3; // calciné en bas, plus pâle en haut
+			case CAVITE -> 0.35 * (1.0 - Math.hypot((x - (fw - 1) / 2.0) / Math.max(1, fw / 2.0), (r - (fh - 1) / 2.0) / Math.max(1, fh / 2.0)));
+			case CRISTAL -> ((x + r) % 4 == 0 ? 0.22 : 0.0) + (x == 0 ? 0.1 : 0.0);
+			case ARMURE -> (laterale && fh >= 6) ? (r % 5 == 4 ? -0.22 : (r % 5 == 0 && r > 0 ? 0.08 : 0.0)) : 0.0;
+			case OR -> ((fw >= 5 && fh >= 5 && (x == 1 || x == fw - 2 || r == 1 || r == fh - 2)) ? -0.22 : 0.0) + ((x + r) % 6 == 0 ? 0.12 : 0.0);
+			case TISSU, TISSU_DECHIRE -> laterale ? 0.13 * Math.sin(x * 1.3 + c.ox) : 0.0;
+			case LAME -> (x == 0 || x == fw - 1) ? 0.3 : ((laterale && fw >= 3 && x == fw / 2) ? -0.15 : 0.0);
+			case CUIR -> (x + r) % 3 == 0 ? -0.18 : 0.0;
+			case MAILLE -> (x % 2 == 0 && r % 2 == 0) ? -0.3 : ((x + r) % 2 == 1 ? 0.1 : 0.0);
+			default -> 0.0;
+		};
+	}
+
+	/** Choisit une couleur de la rampe ; la trame de Bayer adoucit le passage entre deux teintes. */
+	private static int indiceTrame(int taille, double lumiere, int x, int r) {
+		double valeur = Math.max(0.0, Math.min(1.0, lumiere)) * (taille - 1);
+		int base = (int) Math.floor(valeur);
+		double seuil = (BAYER[r & 3][x & 3] + 0.5) / 16.0;
+		int indice = base + (valeur - base > seuil ? 1 : 0);
+		return Math.max(0, Math.min(taille - 1, indice));
+	}
+
+	/** Braise incandescente : blanche au centre, jaune, orange puis rouge sur les bords. */
+	private static int couleurBraise(int x, int r, int fw, int fh) {
+		double cx = (fw - 1) / 2.0, cy = (fh - 1) / 2.0;
+		double dist = Math.hypot((x - cx) / Math.max(1.0, fw / 2.0), (r - cy) / Math.max(1.0, fh / 2.0));
+		if (dist < 0.35) return 0xFFFFF6D0;
+		if (dist < 0.7) return 0xFFFFD040;
+		if (dist < 1.0) return 0xFFFF8A1E;
+		return 0xFFE0401A;
+	}
+
+	/** Détails ajoutés par-dessus la peinture de base. */
+	private static void details(Peintre p, Cube c, Face face, boolean laterale, int x0, int y0, int fw, int fh) {
+		int aire = fw * fh;
+		switch (c.matiere) {
+			case CENDRE -> veines(p, x0, y0, fw, fh, aire >= 6 ? Math.max(1, aire / 26) : 0, 0.55);
+			case CHARBON -> braisesEparses(p, x0, y0, fw, fh, 0.035);
+			case GRIFFE -> {
+				braisesEparses(p, x0, y0, fw, fh, 0.03);
+				if (laterale) { // pointes des griffes chauffées au rouge
+					poser(p.tex(), x0, y0 + fh - 1, 0xFFFF6A1A);
+					poser(p.lueur(), x0, y0 + fh - 1, 0xFFFF6A1A);
+				}
+			}
+			case COTE -> veines(p, x0, y0, fw, fh, aire / 40, 0.0);
 			case ARMURE -> {
-				fissures(tex, lueur, x0, y0, w, h, alea, Math.max(1, (w * h) / 70), 0xFF16161A, true);
-				if (w >= 5 && h >= 5) { // rivets aux coins
-					poser(tex, x0 + 1, y0 + 1, 0xFF8A8A92);
-					poser(tex, x0 + w - 2, y0 + 1, 0xFF8A8A92);
+				rayures(p, x0, y0, fw, fh, aire / 45);
+				if ((face == Face.AVANT || face == Face.ARRIERE) && fw >= 6 && fh >= 5) {
+					rivet(p, x0 + 1, y0 + 1);
+					rivet(p, x0 + fw - 2, y0 + 1);
+					if (fh >= 9) {
+						rivet(p, x0 + 1, y0 + fh - 2);
+						rivet(p, x0 + fw - 2, y0 + fh - 2);
+					}
+				}
+				veines(p, x0, y0, fw, fh, aire / 90, 0.6); // la Cendre ronge l'armure
+			}
+			case TISSU, TISSU_DECHIRE -> {
+				if ((face == Face.AVANT || face == Face.ARRIERE) && fw >= 5 && fh >= 10) {
+					for (int r = 0; r < fh; r++) { // liseré doré
+						int or = Matiere.OR.rampe[r % 3 == 0 ? 5 : 4];
+						poser(p.tex(), x0, y0 + r, or);
+						poser(p.tex(), x0 + fw - 1, y0 + r, or);
+					}
+				}
+				if (c.matiere == Matiere.TISSU && face == Face.ARRIERE && fw >= 10 && fh >= 12) {
+					embleme(p, x0 + (fw - 7) / 2, y0 + 3);
+				}
+				if (c.matiere == Matiere.TISSU_DECHIRE && laterale && fh >= 6) {
+					dechirures(p, x0, y0, fw, fh);
 				}
 			}
 			case LAME -> {
-				// Runes lumineuses gravées au centre de la lame (faces larges uniquement).
-				if (h > w && w >= 3) {
-					int cx = x0 + w / 2;
-					for (int y = 2; y < h - 2; y++) {
-						if (y % 4 != 3) {
-							poser(tex, cx, y0 + y, 0xFFFF6A1A);
-							poser(lueur, cx, y0 + y, 0xFFFF7A2A);
+				if (laterale && face != Face.COTE && fw >= 3 && fh >= 6) { // runes gravées et ardentes
+					int cx = x0 + fw / 2;
+					for (int r = 1; r < fh - 1; r++) {
+						if (r % 4 != 0) {
+							int rune = r % 2 == 0 ? 0xFFFFC060 : 0xFFFF7A20;
+							poser(p.tex(), cx, y0 + r, rune);
+							poser(p.lueur(), cx, y0 + r, rune);
 						}
-					}
-				}
-			}
-			case TISSU -> {
-				// Bas déchiré : quelques pixels transparents sur la dernière ligne des grandes faces.
-				if (h > 10) {
-					for (int x = 0; x < w; x++) {
-						if (alea.nextInt(3) == 0) poser(tex, x0 + x, y0 + h - 1, 0x00000000);
-						if (alea.nextInt(6) == 0) poser(tex, x0 + x, y0 + h - 2, 0x00000000);
 					}
 				}
 			}
@@ -307,42 +598,101 @@ public class GenerateurRessources {
 		}
 	}
 
-	private static int couleurDeBase(Matiere m, Random alea, int x, int y, int w, int h, Face face) {
-		return switch (m) {
-			case CENDRE -> bruit(alea, 0xFF6E6862, 18);
-			case BRAISE -> {
-				// Cœur incandescent : jaune au centre, rouge sur les bords.
-				double cx = (w - 1) / 2.0, cy = (h - 1) / 2.0;
-				double dist = Math.hypot((x - cx) / Math.max(1, cx), (y - cy) / Math.max(1, cy));
-				yield dist < 0.5 ? 0xFFFFE070 : (dist < 1.0 ? 0xFFFF8A1E : 0xFFD8401A);
-			}
-			case ARMURE -> bruit(alea, y % 5 == 0 ? 0xFF34343C : 0xFF45454F, 10);
-			case OR -> bruit(alea, (x + y) % 6 == 0 ? 0xFFB08A30 : 0xFF8A6A26, 12);
-			case TISSU -> bruit(alea, x % 3 == 0 ? 0xFF4A1414 : 0xFF5E1A18, 8);
-			case LAME -> bruit(alea, (x == 0 || x == w - 1) ? 0xFFB8BEC8 : 0xFF6A707C, 8);
-			case CUIR -> bruit(alea, 0xFF3A2418, 10);
-		};
-	}
-
-	/** Trace des fissures sombres ; certaines rougeoient (et vont dans la glowmask). */
-	private static void fissures(BufferedImage tex, BufferedImage lueur, int x0, int y0, int w, int h, Random alea, int nombre, int sombre, boolean braises) {
+	/** Fissures : certaines rougeoient de lave (et vont dans la glowmask), d'autres sont mortes. */
+	private static void veines(Peintre p, int x0, int y0, int fw, int fh, int nombre, double probaArdente) {
+		Random alea = p.alea();
 		for (int n = 0; n < nombre; n++) {
-			int x = alea.nextInt(w), y = alea.nextInt(h);
-			boolean ardente = braises && alea.nextInt(3) == 0;
-			int longueur = 2 + alea.nextInt(4);
+			int x = alea.nextInt(fw), y = alea.nextInt(fh);
+			boolean ardente = alea.nextDouble() < probaArdente;
+			int longueur = 3 + alea.nextInt(4);
 			for (int i = 0; i < longueur; i++) {
-				if (x < 0 || y < 0 || x >= w || y >= h) break;
+				if (x < 0 || y < 0 || x >= fw || y >= fh) break;
 				if (ardente) {
-					int braise = alea.nextBoolean() ? 0xFFFF7A1A : 0xFFFFB040;
-					poser(tex, x0 + x, y0 + y, braise);
-					poser(lueur, x0 + x, y0 + y, braise);
+					int couleur = i < 2 ? 0xFFFFD25A : (i < longueur - 1 ? 0xFFFF7A1A : 0xFFC8360E);
+					poser(p.tex(), x0 + x, y0 + y, couleur);
+					poser(p.lueur(), x0 + x, y0 + y, couleur);
+					// Bord sombre à droite de la fissure : donne du relief.
+					if (x + 1 < fw && (p.lueur().getRGB(x0 + x + 1, y0 + y) >>> 24) == 0) {
+						poser(p.tex(), x0 + x + 1, y0 + y, eclaircir(p.tex().getRGB(x0 + x + 1, y0 + y), 0.6F));
+					}
 				} else {
-					poser(tex, x0 + x, y0 + y, sombre);
+					poser(p.tex(), x0 + x, y0 + y, 0xFF120E0D);
 				}
 				x += alea.nextInt(3) - 1;
 				y += 1;
 			}
 		}
+	}
+
+	private static void braisesEparses(Peintre p, int x0, int y0, int fw, int fh, double proba) {
+		for (int y = 0; y < fh; y++) {
+			for (int x = 0; x < fw; x++) {
+				if (p.alea().nextDouble() < proba) {
+					int braise = p.alea().nextBoolean() ? 0xFFFF5A14 : 0xFFFFA040;
+					poser(p.tex(), x0 + x, y0 + y, braise);
+					poser(p.lueur(), x0 + x, y0 + y, braise);
+				}
+			}
+		}
+	}
+
+	/** Éraflures claires sur le métal. */
+	private static void rayures(Peintre p, int x0, int y0, int fw, int fh, int nombre) {
+		for (int n = 0; n < nombre; n++) {
+			int x = p.alea().nextInt(fw), y = p.alea().nextInt(fh);
+			int longueur = 2 + p.alea().nextInt(2);
+			for (int i = 0; i < longueur && x + i < fw && y + i < fh; i++) {
+				poser(p.tex(), x0 + x + i, y0 + y + i, eclaircir(p.tex().getRGB(x0 + x + i, y0 + y + i), 1.6F));
+			}
+		}
+	}
+
+	private static void rivet(Peintre p, int x, int y) {
+		poser(p.tex(), x, y, Matiere.OR.rampe[5]);
+		poser(p.tex(), x + 1, y + 1, eclaircir(p.tex().getRGB(x + 1, y + 1), 0.6F));
+	}
+
+	/** Bas de tissu déchiré et brûlé : pixels transparents, bord calciné ou encore ardent. */
+	private static void dechirures(Peintre p, int x0, int y0, int fw, int fh) {
+		int profondeur = p.alea().nextInt(3);
+		for (int x = 0; x < fw; x++) {
+			profondeur = Math.max(0, Math.min(3, profondeur + p.alea().nextInt(3) - 1));
+			for (int k = 0; k < profondeur; k++) {
+				poser(p.tex(), x0 + x, y0 + fh - 1 - k, 0x00000000);
+			}
+			int bord = y0 + fh - 1 - profondeur;
+			if (p.alea().nextDouble() < 0.45) {
+				int braise = p.alea().nextBoolean() ? 0xFFFF6A1A : 0xFFFFB040;
+				poser(p.tex(), x0 + x, bord, braise);
+				poser(p.lueur(), x0 + x, bord, braise);
+			} else {
+				poser(p.tex(), x0 + x, bord, 0xFF1A0A08);
+			}
+		}
+	}
+
+	/** Sceau du dragon brodé en or au dos de la cape (7x7). */
+	private static void embleme(Peintre p, int x0, int y0) {
+		String[] motif = {
+			"...#...",
+			"..###..",
+			".#.#.#.",
+			"#..#..#",
+			"..###..",
+			".#...#.",
+			"#.....#"
+		};
+		for (int y = 0; y < motif.length; y++) {
+			for (int x = 0; x < motif[y].length(); x++) {
+				if (motif[y].charAt(x) == '#') {
+					poser(p.tex(), x0 + x, y0 + y, Matiere.OR.rampe[y < 3 ? 6 : 5]);
+					poser(p.tex(), x0 + x, y0 + y + 1, eclaircir(p.tex().getRGB(x0 + x, y0 + y + 1), 0.7F));
+				}
+			}
+		}
+		// Le cœur du dragon, au centre, brille.
+		poser(p.tex(), x0 + 3, y0 + 4, 0xFFFF8A1E);
+		poser(p.lueur(), x0 + 3, y0 + 4, 0xFFFF8A1E);
 	}
 
 	// =================================================================================
@@ -374,9 +724,18 @@ public class GenerateurRessources {
 				double[] dt = distanceSegment(px, py, 4.5, 11.5, 14.6, 1.4);
 				double dist = dt[0], t = dt[1], cote = dt[2];
 				if (t < 0 || t > 1.02) continue;
-				if (dist < 0.55) poser(img, x, y, t > 0.15 && t < 0.85 ? rune : 0xFF8A8F99);
-				else if (dist < 1.25) poser(img, x, y, cote > 0 ? 0xFFDDE2EA : 0xFF4A4E5A);
-				else if (dist < 1.9 && t > 0.05) poser(img, x, y, CONTOUR);
+				// La lame s'affine vers la pointe.
+				double largeur = t > 0.8 ? 0.5 + 0.75 * (1.02 - t) / 0.22 : 1.25;
+				if (dist < 0.55) {
+					// Gouttière centrale : runes en segments, acier poli près de la pointe.
+					boolean segment = t > 0.12 && t < 0.78 && ((int) (t * 16)) % 3 != 2;
+					poser(img, x, y, segment ? rune : (t >= 0.78 ? 0xFFEEF3FA : 0xFF5A6272));
+				} else if (dist < largeur) {
+					// Tranchant clair en haut à gauche, ombre en bas à droite, reflet vers la pointe.
+					poser(img, x, y, cote > 0 ? (t > 0.55 ? 0xFFFFFFFF : 0xFFD4DCE8) : (t > 0.55 ? 0xFF7A8496 : 0xFF464E5E));
+				} else if (dist < largeur + 0.7 && t > 0.04) {
+					poser(img, x, y, CONTOUR);
+				}
 			}
 		}
 		// Garde dorée en forme d'ailes, perpendiculaire à la lame.
@@ -384,24 +743,28 @@ public class GenerateurRessources {
 			for (int x = 0; x < 16; x++) {
 				double[] dt = distanceSegment(x + 0.5, y + 0.5, 1.8, 8.6, 7.6, 14.4);
 				if (dt[1] >= 0 && dt[1] <= 1) {
-					if (dt[0] < 0.7) poser(img, x, y, dt[2] > 0 ? 0xFFF0C050 : 0xFFB08020);
+					boolean bout = dt[1] < 0.12 || dt[1] > 0.88;
+					if (dt[0] < 0.7) poser(img, x, y, dt[2] > 0 ? (bout ? 0xFFFFF0A0 : 0xFFF0C050) : 0xFF9A6418);
 					else if (dt[0] < 1.4) poser(img, x, y, CONTOUR);
 				}
 			}
 		}
-		// Gemme de rune au centre de la garde.
+		// Gemme de rune au centre de la garde (avec un reflet).
 		poser(img, 4, 11, rune);
 		poser(img, 5, 11, runeSombre);
 		poser(img, 4, 12, runeSombre);
-		// Poignée et pommeau.
-		int[][] poignee = {{3, 12}, {2, 13}, {3, 13}, {2, 12}};
-		for (int[] p : poignee) poser(img, p[0], p[1], 0xFF5A3420);
+		poser(img, 5, 10, 0xFFFFFFFF);
+		// Poignée de cuir tressé et pommeau en rubis.
+		poser(img, 2, 12, 0xFF3A1E12);
 		poser(img, 3, 12, 0xFF7A4A2C);
-		poser(img, 1, 14, 0xFFC02030);
+		poser(img, 2, 13, 0xFF7A4A2C);
+		poser(img, 3, 13, 0xFF3A1E12);
+		poser(img, 1, 14, 0xFFE03040);
 		poser(img, 0, 15, 0xFF701018);
 		poser(img, 1, 15, 0xFF901820);
 		poser(img, 0, 14, CONTOUR);
 		poser(img, 2, 14, CONTOUR);
+		poser(img, 2, 15, CONTOUR);
 		return img;
 	}
 

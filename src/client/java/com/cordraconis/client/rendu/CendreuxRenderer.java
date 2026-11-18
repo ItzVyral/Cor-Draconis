@@ -2,9 +2,12 @@ package com.cordraconis.client.rendu;
 
 import com.cordraconis.CorDraconis;
 import com.cordraconis.entite.cendreux.CendreuxEntity;
+import com.geckolib.constant.DefaultAnimations;
 import com.geckolib.model.DefaultedEntityGeoModel;
 import com.geckolib.renderer.GeoEntityRenderer;
+import com.geckolib.renderer.base.BoneSnapshots;
 import com.geckolib.renderer.base.GeoRenderState;
+import com.geckolib.renderer.base.RenderPassInfo;
 import com.geckolib.renderer.layer.builtin.AutoGlowingGeoLayer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -31,5 +34,15 @@ public class CendreuxRenderer extends GeoEntityRenderer<CendreuxEntity, LivingEn
 	@Override
 	protected float getDeathMaxRotation(final GeoRenderState etat) {
 		return 0.0F;
+	}
+
+	/**
+	 * Suivi du regard : l'os "regard" (sans cube, parent de la tête) est tourné vers la cible
+	 * après le calcul des animations. NOTION — on tourne le parent plutôt que la tête elle-même
+	 * pour ne pas écraser les mouvements de tête des animations.
+	 */
+	@Override
+	public void adjustModelBonesForRender(final RenderPassInfo<LivingEntityRenderState> infos, final BoneSnapshots os) {
+		DefaultAnimations.hardcodedHeadRotation(infos, os, "regard");
 	}
 }

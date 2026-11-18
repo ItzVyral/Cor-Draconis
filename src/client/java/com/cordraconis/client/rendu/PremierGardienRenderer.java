@@ -2,9 +2,12 @@ package com.cordraconis.client.rendu;
 
 import com.cordraconis.CorDraconis;
 import com.cordraconis.entite.gardien.PremierGardienEntity;
+import com.geckolib.constant.DefaultAnimations;
 import com.geckolib.model.DefaultedEntityGeoModel;
 import com.geckolib.renderer.GeoEntityRenderer;
+import com.geckolib.renderer.base.BoneSnapshots;
 import com.geckolib.renderer.base.GeoRenderState;
+import com.geckolib.renderer.base.RenderPassInfo;
 import com.geckolib.renderer.layer.builtin.AutoGlowingGeoLayer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -24,5 +27,14 @@ public class PremierGardienRenderer extends GeoEntityRenderer<PremierGardienEnti
 	@Override
 	protected float getDeathMaxRotation(final GeoRenderState etat) {
 		return 0.0F;
+	}
+
+	/**
+	 * Juste avant l'affichage, après les animations : on tourne l'os "regard" (parent de la tête)
+	 * vers là où regarde le Gardien. Les animations de la tête s'ajoutent par-dessus.
+	 */
+	@Override
+	public void adjustModelBonesForRender(final RenderPassInfo<LivingEntityRenderState> infos, final BoneSnapshots os) {
+		DefaultAnimations.hardcodedHeadRotation(infos, os, "regard");
 	}
 }

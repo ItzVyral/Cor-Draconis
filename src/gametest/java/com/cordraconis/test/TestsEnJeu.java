@@ -175,7 +175,74 @@ public class TestsEnJeu implements FabricClientGameTest {
 			serveur.runCommand("tp @a 0.5 " + (Y_SOL + 3) + " -30 180 10");
 			contexte.waitTicks(30);
 			contexte.takeScreenshot("cordraconis-6-gardien-phase2");
+
+			// --- 7. Galerie : gros plans des modèles et des animations ----------------
+			galerie(contexte, serveur);
 		}
+	}
+
+	/**
+	 * Portraits sans interface : face, profil, dos et poses clés des animations.
+	 * Les créatures restent immobiles (sans IA) : c'est la caméra (le joueur) qui tourne autour.
+	 */
+	private static void galerie(final ClientGameTestContext contexte, final TestServerContext serveur) {
+		serveur.runCommand("kill @e[type=!player]");
+		serveur.runCommand("time set noon");
+		contexte.getInput().pressKey(options -> options.keyToggleGui); // F1 : masque l'interface
+		serveur.runOnServer(s -> {
+			ServerPlayer joueur = joueur(s);
+			joueur.getAbilities().flying = false;
+			joueur.onUpdateAbilities();
+		});
+
+		// Le Cendreux, en (40.5, -3).
+		camera(contexte, serveur, 40.5, 0.5, 180);
+		serveur.runOnServer(s -> apparaitre(ModEntites.CENDREUX, joueur(s).level(), 40.5, -3.0, true));
+		contexte.waitTicks(30);
+		contexte.takeScreenshot("cordraconis-7-cendreux-face");
+		camera(contexte, serveur, 44.0, -3.0, 90);
+		contexte.takeScreenshot("cordraconis-8-cendreux-profil");
+		camera(contexte, serveur, 43.5, 0.0, 135);
+		serveur.runOnServer(s -> premier(s, CendreuxEntity.class).triggerAnim("actions", "attaque"));
+		contexte.waitTicks(5);
+		contexte.takeScreenshot("cordraconis-9-cendreux-attaque");
+		serveur.runOnServer(s -> {
+			CendreuxEntity cendreux = premier(s, CendreuxEntity.class);
+			cendreux.hurtServer((ServerLevel) cendreux.level(), cendreux.damageSources().generic(), 100.0F);
+		});
+		contexte.waitTicks(35);
+		contexte.takeScreenshot("cordraconis-10-cendreux-tas");
+		serveur.runCommand("kill @e[type=!player]");
+		contexte.waitTicks(25);
+		serveur.runCommand("kill @e[type=item]");
+
+		// Le Premier Gardien, en (40.5, -7).
+		camera(contexte, serveur, 40.5, 0.5, 180);
+		serveur.runOnServer(s -> apparaitre(ModEntites.PREMIER_GARDIEN, joueur(s).level(), 40.5, -7.0, true));
+		contexte.waitTicks(30);
+		contexte.takeScreenshot("cordraconis-11-gardien-face");
+		camera(contexte, serveur, 48.0, -7.0, 90);
+		contexte.takeScreenshot("cordraconis-12-gardien-profil");
+		camera(contexte, serveur, 40.5, -14.5, 0);
+		contexte.takeScreenshot("cordraconis-13-gardien-dos");
+		camera(contexte, serveur, 46.0, -1.5, 135);
+		serveur.runOnServer(s -> premier(s, PremierGardienEntity.class).triggerAnim("actions", "fracas"));
+		contexte.waitTicks(9);
+		contexte.takeScreenshot("cordraconis-14-gardien-fracas");
+		contexte.waitTicks(40);
+		serveur.runOnServer(s -> {
+			PremierGardienEntity gardien = premier(s, PremierGardienEntity.class);
+			gardien.kill((ServerLevel) gardien.level());
+		});
+		contexte.waitTicks(35);
+		contexte.takeScreenshot("cordraconis-15-gardien-agonie");
+		contexte.getInput().pressKey(options -> options.keyToggleGui);
+	}
+
+	/** Place le joueur (donc la caméra) en (x, z), regardant vers l'angle donné (0 = sud, 90 = ouest). */
+	private static void camera(final ClientGameTestContext contexte, final TestServerContext serveur, final double x, final double z, final int angle) {
+		serveur.runCommand("tp @a " + x + " " + Y_SOL + " " + z + " " + angle + " 5");
+		contexte.waitTicks(5);
 	}
 
 	// --- Outils -------------------------------------------------------------------
@@ -211,7 +278,8 @@ public class TestsEnJeu implements FabricClientGameTest {
 
 	private static <T extends Mob> T premier(final MinecraftServer serveur, final Class<T> classe) {
 		ServerPlayer joueur = joueur(serveur);
-		List<T> trouves = joueur.level().getEntitiesOfClass(classe, joueur.getBoundingBox().inflate(64.0));
+		// Seulement les vivantes : une créature à l'agonie reste un moment dans le monde.
+		List<T> trouves = joueur.level().getEntitiesOfClass(classe, joueur.getBoundingBox().inflate(64.0), T::isAlive);
 		verifier(!trouves.isEmpty(), "Aucune entité " + classe.getSimpleName() + " trouvée");
 		return trouves.getFirst();
 	}

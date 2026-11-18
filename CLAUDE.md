@@ -34,6 +34,13 @@
 - `outils/GenerateurRessources.java` crée textures, glowmasks, icônes, GUI et `.geo.json`.
   `java outils/GenerateurRessources.java` — ÉCRASE les fichiers : ne plus le lancer sur un fichier retouché à la main.
 - Les animations (`geckolib/animations/entity/*.animation.json`) sont écrites à la main.
+  Keyframes `{"vector": [...], "easing": "easeOutBack"}` (easing = arrivée sur ce keyframe) et Molang (`query.anim_time`, `math.sin` en degrés).
+- Contrôleurs GeckoLib : `corps` (état), `actions` (triggerAnim, remplace `corps` sur ses os), `ambiance` (additif, toujours actif : cœur, orbites, cape).
+  Dans un contrôleur non additif, animer un os réinitialise ses 3 transformations (rotation, position, échelle).
+- Os `regard` (sans cube, parent de `tete`) : tourné vers la cible par `adjustModelBonesForRender` dans les renderers.
+- Cendreux : l'os `tas` est mis à l'échelle 0 par repos/marche et n'apparaît qu'à l'effondrement.
+- Gardien : agonie de 60 ticks (`tickDeath`), impact du Fracas 12 ticks après son déclenchement (synchro avec l'animation).
+- Le test en jeu prend des gros plans (« galerie ») : la caméra tourne autour, les créatures sans IA ne pivotent pas leur corps.
 
 ## Commandes
 - `./gradlew build` : compile le mod (jar dans `build/libs/`).

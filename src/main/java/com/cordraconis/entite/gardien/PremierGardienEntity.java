@@ -74,10 +74,15 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 	private static final RawAnimation FRAPPE = RawAnimation.begin().thenPlay("animation.premier_gardien.frappe");
 	private static final RawAnimation FRACAS = RawAnimation.begin().thenPlay("animation.premier_gardien.fracas");
 	private static final RawAnimation INVOCATION = RawAnimation.begin().thenPlay("animation.premier_gardien.invocation");
+	private static final RawAnimation AMBIANCE = RawAnimation.begin().thenLoop("animation.premier_gardien.ambiance");
 
 	private static final Identifier MODIF_RAGE = CorDraconis.id("rage_du_gardien");
 	private static final double RAYON_FRACAS = 5.0;
 	private static final int MAX_CENDREUX_INVOQUES = 4;
+	/** Ticks entre le début du Fracas et l'impact : l'épée touche le sol à 0,6 s dans l'animation. */
+	private static final int DELAI_IMPACT_FRACAS = 12;
+	/** Durée de l'agonie (3 s) : le temps de jouer l'animation de mort en entier. */
+	private static final int DUREE_MORT = 60;
 
 	private final AnimatableInstanceCache cacheAnimations = GeckoLibUtil.createInstanceCache(this);
 
@@ -94,6 +99,8 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 	private @Nullable BlockPos centreArene;
 	private int delaiFracas = 100;
 	private int delaiInvocation = 400;
+	/** Compte à rebours avant l'impact du Fracas en cours (-1 : aucun Fracas en cours). */
+	private int impactFracasDans = -1;
 
 	public PremierGardienEntity(final EntityType<? extends PremierGardienEntity> type, final Level niveau) {
 		super(type, niveau);
@@ -151,6 +158,11 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 
 		this.resterDansLArene(niveau);
 
+		// L'épée levée retombe : c'est maintenant que le sol tremble.
+		if (this.impactFracasDans >= 0 && --this.impactFracasDans < 0) {
+			this.impactFracas(niveau);
+		}
+
 		LivingEntity cible = this.getTarget();
 		if (cible == null) {
 			return;
@@ -188,9 +200,19 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 		this.invoquerCendreux(niveau, 3);
 	}
 
-	/** Attaque de zone : dégâts et projection pour tous les joueurs proches. */
+	/**
+	 * Début du Fracas : le Gardien lève son épée à deux mains (le joueur a le temps de reculer).
+	 * L'impact arrive DELAI_IMPACT_FRACAS ticks plus tard, synchronisé avec l'animation.
+	 */
 	private void fracas(final ServerLevel niveau) {
 		this.triggerAnim("actions", "fracas");
+		this.impactFracasDans = DELAI_IMPACT_FRACAS;
+		niveau.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.EVOKER_PREPARE_ATTACK, SoundSource.HOSTILE, 1.5F, 0.5F);
+		niveau.sendParticles(ParticleTypes.FLAME, this.getX(), this.getY() + 3.0, this.getZ(), 20, 0.4, 0.6, 0.4, 0.02);
+	}
+
+	/** Impact du Fracas : dégâts et projection pour tous les joueurs proches. */
+	private void impactFracas(final ServerLevel niveau) {
 		niveau.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.HOSTILE, 2.0F, 0.6F);
 
 		// Un anneau de particules qui s'élargit sur le sol.
@@ -267,6 +289,28 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 			for (ServerPlayer joueur : this.barreDeVie.getPlayers()) {
 				joueur.sendSystemMessage(Component.translatable("message.cordraconis.gardien_vaincu").withStyle(ChatFormatting.GOLD, ChatFormatting.ITALIC));
 			}
+		}
+	}
+
+	/**
+	 * Agonie : par défaut une créature disparaît 1 seconde après sa mort. Le Gardien prend
+	 * 3 secondes pour tomber à genoux ; son cœur éclate juste avant qu'il ne tombe en cendre.
+	 */
+	@Override
+	protected void tickDeath() {
+		this.deathTime++;
+		if (!(this.level() instanceof ServerLevel niveau) || this.isRemoved()) {
+			return;
+		}
+		if (this.deathTime == 54) { // l'animation fait éclater le cœur à 2,7 s
+			niveau.sendParticles(ParticleTypes.LAVA, this.getX(), this.getY() + 2.0, this.getZ(), 30, 0.4, 0.4, 0.4, 0.0);
+			niveau.sendParticles(ParticleTypes.FLAME, this.getX(), this.getY() + 2.0, this.getZ(), 60, 0.3, 0.3, 0.3, 0.15);
+			niveau.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.0F, 1.6F);
+		}
+		if (this.deathTime >= DUREE_MORT) {
+			niveau.sendParticles(ParticleTypes.ASH, this.getX(), this.getY() + 1.5, this.getZ(), 150, 0.8, 1.2, 0.8, 0.02);
+			niveau.broadcastEntityEvent(this, (byte) 60); // petit nuage de fumée vanilla
+			this.remove(Entity.RemovalReason.KILLED);
 		}
 	}
 
@@ -352,6 +396,13 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 
 	// --- GeckoLib ---------------------------------------------------------------------
 
+	/**
+	 * Trois contrôleurs, traités dans l'ordre :
+	 *  - "corps"    : repos, marche ou mort ;
+	 *  - "actions"  : frappe, Fracas, invocation (remplacent "corps" sur les os qu'ils animent) ;
+	 *  - "ambiance" : battement du cœur, éclats en orbite, plumet et cape au vent.
+	 *    Il est "additif" : ses valeurs s'AJOUTENT aux autres au lieu de les remplacer.
+	 */
 	@Override
 	public void registerControllers(final AnimatableManager.ControllerRegistrar controleurs) {
 		controleurs.add(new AnimationController<PremierGardienEntity>("corps", 5, test -> {
@@ -364,6 +415,8 @@ public class PremierGardienEntity extends Monster implements GeoEntity {
 			.triggerableAnim("frappe", FRAPPE)
 			.triggerableAnim("fracas", FRACAS)
 			.triggerableAnim("invocation", INVOCATION));
+		controleurs.add(new AnimationController<PremierGardienEntity>("ambiance", 0, test -> test.setAndContinue(AMBIANCE))
+			.additiveAnimations());
 	}
 
 	@Override
